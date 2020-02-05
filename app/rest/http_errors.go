@@ -31,22 +31,31 @@ const errorHTML = `<!DOCTYPE html>
 
 // errData describes parameters of any error
 type errData struct {
-	Error   string
-	Details string
+	error   string
+	details string
 }
 
 // SendHTMLErrorPage returns an html page if any error, that relates to the user's request occurs
 func SendHTMLErrorPage(w http.ResponseWriter, r *http.Request, httpStatusCode int, err error, details string, errCode int) {
 	tmpl := template.Must(template.New("error").Parse(errorHTML))
 	msg := bytes.Buffer{}
-	err = tmpl.Execute(&msg, errData{
-		Error:   err.Error(),
-		Details: details,
-	})
-	if err != nil {
+	if err := tmpl.Execute(&msg, errData{
+		error:   err.Error(),
+		details: details,
+	}); err != nil {
 		panic(err)
 	}
-	log.Printf("[WARN] %s", err.Error())
+	log.Printf("[WARN] error occured, while processing request: %s, internal error code: %d", err.Error(), errCode)
 	render.Status(r, httpStatusCode)
 	render.HTML(w, r, msg.String())
+}
+
+// SendJSONError returns a json representation of an occurred error
+func SendJSONError(w http.ResponseWriter, r *http.Request, httpStatusCode int, err error, details string, errCode int) {
+	log.Printf("[WARN] error occured, while processing request: %s, internal error code: %d", err.Error(), errCode)
+	render.Status(r, httpStatusCode)
+	render.JSON(w, r, errData{
+		error:   err.Error(),
+		details: details,
+	})
 }
