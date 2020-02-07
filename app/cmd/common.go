@@ -9,6 +9,10 @@ type Database struct {
 	Source   string `long:"dbsource" env:"DBSOURCE" required:"true" description:"database source in format <dbname>@<host>:port"`
 }
 
+type Hashing struct {
+	BcryptCost int `long:"bcryptcost" env:"BCRYPTCOST" required:"true" description:"number of hashing applied to string"`
+}
+
 // CommonCommander simplifies the delivery of common arguments and variables
 type CommonCommander interface {
 	SetCommonOptions(common CommonOptions)
@@ -17,9 +21,10 @@ type CommonCommander interface {
 
 // CommonOptions for each command
 type CommonOptions struct {
-	AppName   string
-	AppAuthor string
-	Version   string
+	AppName     string
+	AppAuthor   string
+	Version     string
+	LoggerFlags int
 }
 
 // SetCommonOptions options for the command

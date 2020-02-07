@@ -44,12 +44,15 @@ type Rest struct {
 	}
 
 	// Private fields (http object, etc.)
-	http *http.Server
-	lock sync.Mutex
+	authenticator auth.Service
+	http          *http.Server
+	lock          sync.Mutex
 }
 
 // Run starts the web-server for listening
 func (s *Rest) Run(port int) {
+	s.authenticator = *s.makeAuth()
+
 	s.lock.Lock()
 	s.http = s.makeHTTPServer(port, s.routes())
 	s.http.ErrorLog = log.New(os.Stdout, "", log.Flags())
@@ -61,40 +64,44 @@ func (s *Rest) Run(port int) {
 
 func (s *Rest) makeAuth() *auth.Service {
 	authenticator := auth.NewService(auth.Opts{
+		URL:            strings.TrimSuffix(s.ServiceURL, "/"),
+		Issuer:         s.AppName,
 		TokenDuration:  s.Auth.TTL.JWT,
 		CookieDuration: s.Auth.TTL.Cookie,
-		Issuer:         s.AppName,
 		SecureCookies:  strings.HasPrefix(s.ServiceURL, "https://"),
-		URL:            strings.TrimSuffix(s.ServiceURL, "/"),
 		AvatarStore:    avatar.NewNoOp(),
 		JWTQuery:       "jwt",
 		Logger:         logger.Std,
-		SecretReader: token.SecretFunc(func(_ string) (string, error) { // secret key for JWT
+		SecretReader: token.SecretFunc(func(_ string) (string, error) {
 			// todo is thread-safe?
 			return s.JWTSecret, nil
 		}),
-
 		// c.User.Audience - address of front end,
-
 		ClaimsUpd: token.ClaimsUpdFunc(func(c token.Claims) token.Claims {
 			if c.User == nil {
 				return c
 			}
-			adm, err := s.UserService.IsAdmin(c.User.ID)
+			uInfo, err := s.UserService.GetBasicUserInfo(c.User.ID)
 			if err != nil {
-				log.Printf("[WARN] failed to recognize is user admin, id: %s", c.User.ID)
+				log.Printf("[WARN] failed to recognize is user admin, id: %s, error: %s", c.User.ID, err.Error())
 				return c
 			}
-			c.User.SetAdmin(adm)
+			privs := []string{}
+			for k, v := range uInfo.Privileges {
+				if v {
+					privs = append(privs, k)
+				}
+			}
+			c.User.SetSliceAttr("privs", privs)
 			return c
 		}),
-		Validator: token.ValidatorFunc(func(_ string, claims token.Claims) bool {
-			// allow only dev_* names
-			return claims.User != nil && strings.HasPrefix(claims.User.Name, "dev_")
+		Validator: token.ValidatorFunc(func(token string, claims token.Claims) bool {
+			// todo do we need validator?
+			return claims.User != nil
 		}),
 	})
-	// adding custom credentials checker
 	authenticator.AddDirectProvider("local", provider.CredCheckerFunc(s.UserService.CheckUserCredentials))
+	return authenticator
 }
 
 func (s *Rest) makeHTTPServer(port int, routes chi.Router) *http.Server {
@@ -110,6 +117,22 @@ func (s *Rest) routes() chi.Router {
 	r := chi.NewRouter()
 	r.Use(middleware.RealIP)
 	r.Use(R.AppInfo(s.AppName, s.AppAuthor, s.Version), R.Ping)
+
+	authHandler, _ := s.authenticator.Handlers()
+
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.Timeout(5 * time.Second))
+		r.Mount("/auth", authHandler)
+	})
+
+	walkFunc := func(method string, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
+		log.Printf("[DEBUG] registered route: %s %s\n", method, route)
+		return nil
+	}
+
+	if err := chi.Walk(r, walkFunc); err != nil {
+		log.Printf("[WARN] error occurred while printing routes: %s", err.Error())
+	}
 
 	r.Group(func(r chi.Router) {
 		// protected routes

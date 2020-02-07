@@ -2,7 +2,6 @@ package user
 
 import (
 	"log"
-	"strconv"
 
 	"github.com/pkg/errors"
 
@@ -25,9 +24,9 @@ func NewPgStorage(options pg.Options, logger *log.Logger) (*PgStorage, error) {
 }
 
 // Migrate forms all tables and views in the database to make them available for use
-func (s *PgStorage) Migrate() error {
+func (s *PgStorage) Migrate(force bool) error {
 	log.Printf("[DEBUG] started users storage migration")
-	if err := utils.CreateSchemas(s.db, false,
+	if err := utils.CreateSchemas(s.db, force,
 		(*User)(nil), (*Session)(nil),
 	); err != nil {
 		return errors.Wrapf(err, "there are some errors during the migration")
@@ -36,16 +35,16 @@ func (s *PgStorage) Migrate() error {
 }
 
 // PutUser user into storage, if there is error, id will be 0
-func (s *PgStorage) putUser(user User) (id uint64, err error) {
-	if err := s.db.Insert(user); err != nil {
+func (s *PgStorage) putUser(user *User) (id uint64, err error) {
+	if err := s.db.Insert(&user); err != nil {
 		return 0, err
 	}
 	return user.ID, nil
 }
 
 // UpdateUser user in the postgres storage
-func (s *PgStorage) UpdateUser(user User) (err error) {
-	if err := s.db.Update(user); err != nil {
+func (s *PgStorage) UpdateUser(user *User) (err error) {
+	if err := s.db.Update(&user); err != nil {
 		return err
 	}
 	return nil
@@ -60,24 +59,22 @@ func (s *PgStorage) GetUser(id uint64) (*User, error) {
 	return &user, nil
 }
 
+// GetUserCredentials returns basic email and password information about the user
 func (s *PgStorage) GetUserCredentials(email string) (*User, error) {
 	user := User{Email: email}
-	if err := s.db.Model(user).Column("email", "password").Select(&user); err != nil {
+	if err := s.db.Model(&user).Column("email", "password").Select(&user); err != nil {
 		return nil, err
 	}
 	return &user, nil
 }
 
-func (s *PgStorage) IsAdmin(id string) (b bool, err error) {
-	idInt, err := strconv.Atoi(id)
-	if err != nil {
-		return false, errors.Wrapf(err, "failed to cast id to uint64")
+// GetBasicUserInfo returns information about user's privileges
+func (s *PgStorage) getBasicUserInfo(id uint64) (*User, error) {
+	user := User{ID: id}
+	if err := s.db.Model(&user).Column("is_admin", "email", "password", "privileges").Select(&user); err != nil {
+		return nil, err
 	}
-	user := User{ID: uint64(idInt)}
-	if err := s.db.Model(user).Column("is_admin").Select(&user); err != nil {
-		return false, nil
-	}
-	return user.IsAdmin, nil
+	return &user, nil
 }
 
 // DeleteUser user by id from the postgres storage

@@ -13,8 +13,9 @@ import (
 
 // Options struct defines all cli commands and flags
 type Options struct {
-	ServeCmd     cmd.ServeCommand     `command:"serve"`
-	MigrateDbCmd cmd.MigrateDbCommand `command:"migrate"`
+	ServeCmd         cmd.ServeCommand     `command:"serve"`
+	MigrateDbCmd     cmd.MigrateDbCommand `command:"migrate"`
+	RegisterAdminCmd cmd.RegisterAdmin    `command:"register_admin"`
 
 	Dbg bool `long:"dbg" env:"DEBUG" description:"debug mode"`
 }
@@ -22,6 +23,8 @@ type Options struct {
 const appName = "gotemplate"
 const appAuthor = "semior"
 const version = "unknown"
+
+var logFlags int = log.Ldate | log.Ltime
 
 func main() {
 	fmt.Printf("%s version: %s\n", appName, version)
@@ -31,9 +34,10 @@ func main() {
 	p.CommandHandler = func(command flags.Commander, args []string) error {
 		setupLog(opts.Dbg)
 		command.(cmd.CommonCommander).SetCommonOptions(cmd.CommonOptions{
-			AppName:   appName,
-			AppAuthor: appAuthor,
-			Version:   version,
+			AppName:     appName,
+			AppAuthor:   appAuthor,
+			Version:     version,
+			LoggerFlags: logFlags,
 		})
 		err := command.Execute(args)
 		if err != nil {
@@ -59,12 +63,12 @@ func setupLog(dbg bool) {
 		Writer:   os.Stdout,
 	}
 
-	log.SetFlags(log.Ldate | log.Ltime)
-
 	if dbg {
-		log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds | log.Lshortfile)
+		logFlags = log.Ldate | log.Ltime | log.Lmicroseconds | log.Lshortfile
 		filter.MinLevel = "DEBUG"
 	}
+
+	log.SetFlags(logFlags)
 
 	log.SetOutput(filter)
 }
