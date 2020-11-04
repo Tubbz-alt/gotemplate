@@ -56,7 +56,7 @@ func (s *DataStore) AddUser(user store.User, password string) (id string, err er
 	}
 	// adding id
 	if user.ID == "" {
-		user.ID = generateUserID(user.Email) // nolint
+		user.ID = generateUserID(user.Email)
 	}
 
 	id, err = s.UserRepository.AddUser(user, string(b), false)
@@ -71,7 +71,7 @@ func (s *DataStore) RegisterAdmin(email string, password string) (id string, err
 		return "", errors.Wrapf(err, "failed to hash %s user's password with bcrypt", email)
 	}
 	u := store.User{
-		ID:         generateUserID(email), // nolint
+		ID:         generateUserID(email),
 		Email:      email,
 		Privileges: []store.Privilege{store.PrivReadUsers, store.PrivEditUsers, store.PrivListUsers, store.PrivAddUsers},
 	}
@@ -81,5 +81,5 @@ func (s *DataStore) RegisterAdmin(email string, password string) (id string, err
 }
 
 func generateUserID(email string) string {
-	return "local_" + token.HashID(sha1.New(), email)
+	return "local_" + token.HashID(sha1.New(), email) //nolint
 }

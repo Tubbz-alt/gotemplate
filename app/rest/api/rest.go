@@ -31,7 +31,7 @@ type Rest struct {
 	// todo ctrl groups
 }
 
-const hardBodyLimit = 1024 * 64 // limit size of body
+const hardBodyLimit = 1024 * 64 //nolint // limit size of body
 
 // Run starts the web-server for listening
 func (s *Rest) Run(port int) {
