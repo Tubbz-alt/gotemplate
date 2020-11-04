@@ -36,6 +36,7 @@ jobs:
 
       - name: Install goose
         run: |
+          cd /
           go get -u github.com/pressly/goose/cmd/goose
 
       - name: Migrate database
