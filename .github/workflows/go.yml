@@ -40,7 +40,7 @@ jobs:
 
       - name: Migrate database
         run: |
-          cd backend/migrations
+          cd migrations
           $(go env GOPATH)/bin/goose postgres $PG up
         env:
           PG: postgres://postgres:postgres@localhost:${{ job.services.postgres.ports[5432] }}/test?sslmode=disable
@@ -52,9 +52,9 @@ jobs:
 
       - name: Run tests and extract coverage
         run: |
-          cd backend/app
-          go test -mod=vendor -timeout=60s -covermode=count -coverprofile=$GITHUB_WORKSPACE/backend/profile.cov_tmp ./...
-          cat $GITHUB_WORKSPACE/backend/profile.cov_tmp | grep -v "mock_" > $GITHUB_WORKSPACE/backend/profile.cov
+          cd app
+          go test -mod=vendor -timeout=60s -covermode=count -coverprofile=$GITHUB_WORKSPACE/profile.cov_tmp ./...
+          cat $GITHUB_WORKSPACE/profile.cov_tmp | grep -v "mock_" > $GITHUB_WORKSPACE/profile.cov
         env:
           CGO_ENABLED: 0
           DB_TEST: postgres://postgres:postgres@localhost:${{ job.services.postgres.ports[5432] }}/test?sslmode=disable
@@ -65,15 +65,14 @@ jobs:
 
       - name: Run linters
         run: $GITHUB_WORKSPACE/golangci-lint run --config .golangci.yml ./...
-        working-directory: backend
         env:
           GOFLAGS: "-mod=mod"
           CGO_ENABLED: 0
 
       - name: Submit coverage to codecov
         run: |
-          cat $GITHUB_WORKSPACE/backend/profile.cov > $GITHUB_WORKSPACE/backend/coverage.txt
-          cd $GITHUB_WORKSPACE/backend
+          cat $GITHUB_WORKSPACE/profile.cov > $GITHUB_WORKSPACE/coverage.txt
+          cd $GITHUB_WORKSPACE
           bash <(curl -s https://codecov.io/bash)
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
