@@ -1,4 +1,4 @@
-# gotemplate
+# gotemplate ![Go](https://github.com/Semior001/gotemplate/workflows/Go/badge.svg) [![codecov](https://codecov.io/gh/Semior001/gotemplate/branch/master/graph/badge.svg?token=XZQBP7MPV0)](https://codecov.io/gh/cappuccinotm/bot-sched)
 
 ## Build and Deploy
 
